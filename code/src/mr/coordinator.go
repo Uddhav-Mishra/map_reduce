@@ -24,6 +24,11 @@ func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 	return nil
 }
 
+func (c *Coordinator) RequestJob(arg *RequestJobArg, ret *RequestJobRet) error {
+	ret.IS_MAP = true
+	ret.INPUT_FILE = "/Users/uddhav.mishra/Desktop/map_reduce/code/src/main/input/pg-being_ernest.txt"
+	return nil
+}
 
 //
 // start a thread that listens for RPCs from worker.go

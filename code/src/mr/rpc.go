@@ -22,6 +22,18 @@ type ExampleReply struct {
 	Y int
 }
 
+type RequestJobArg struct {
+
+}
+
+type RequestJobRet struct {
+	IS_MAP bool
+	INPUT_FILE string
+	IS_REDUCE bool;
+	REDUCE_ID int;
+	CHILL bool;
+}
+
 // Add your RPC definitions here.
 
 

@@ -4,7 +4,7 @@ import "fmt"
 import "log"
 import "net/rpc"
 import "hash/fnv"
-
+import "time"
 
 //
 // Map functions return a slice of KeyValue.
@@ -34,7 +34,34 @@ func Worker(mapf func(string, string) []KeyValue,
 	// Your worker implementation here.
 
 	// uncomment to send the Example RPC to the coordinator.
-	// CallExample()
+	CallExample()
+	fmt.Println("heree")
+	CallRequestJob()
+}
+
+
+func CallRequestJob() {
+    arg := RequestJobArg{}
+    ret := RequestJobRet{}
+
+    call("Coordinator.RequestJob", &arg, &ret)
+    if ret.IS_MAP {
+    	fmt.Println("ret input file" + ret.INPUT_FILE)
+    	StartMap(ret.INPUT_FILE)
+    } else if ret.IS_REDUCE {
+    	fmt.Println(ret.REDUCE_ID)
+      	StartReduce(ret.REDUCE_ID)
+    } else {
+    	time.Sleep(2000 * time.Millisecond);
+    }
+}
+
+
+func StartMap(input_file string) {
+
+}
+
+func StartReduce(reduce_id int) {
 
 }
 
