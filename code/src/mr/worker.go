@@ -13,6 +13,7 @@ import "os"
 import "io/ioutil"
 import "strconv"
 import "sort"
+import "encoding/json"
 
 //
 // Map functions return a slice of KeyValue.
@@ -70,30 +71,39 @@ func Worker(mapf func(string, string) []KeyValue,
 	fmt.Println(worker_uuid_)
 	worker_map_id_ = 1
 	nreduce_ = 2
-	CallRequestJob(true /*first_request*/, mapf, reducef)
+	CallRequestJob(mapf, reducef)
 }
 
 
-func CallRequestJob(first_request bool, mapf func(string, string) []KeyValue, reducef func(string, []string) string) {
+func CallRequestJob(mapf func(string, string) []KeyValue, reducef func(string, []string) string) {
     arg := RequestJobArg{}
     arg.WORKER_UUID = worker_uuid_
-    if first_request {
-    	arg.FIRST_REQUEST = true
-    }
     ret := RequestJobRet{}
 
-    call("Coordinator.RequestJob", &arg, &ret)
+    resp := call("Coordinator.RequestJob", &arg, &ret)
+    if resp == false {
+ 		fmt.Println("RPC to coordinator failed , Retrying");
+ 		// check how to avoid stack overflow here and other places
+    	// where nested calls are being made.
+ 		CallRequestJob(mapf, reducef)
+    	return
+    }
 
+    // RPC call completed, do map/reduce/exit/wait
+    nreduce_ = ret.NREDUCE
     if ret.IS_MAP {
     	fmt.Println("map now" + ret.INPUT_FILE)
     	StartMap(ret.INPUT_FILE, mapf, reducef)
     } else if ret.IS_REDUCE {
     	fmt.Println("reduce")
       	StartReduce(ret.REDUCE_ID, mapf, reducef)
+    } else if ret.WORK_DONE {
+    	fmt.Println("All work done, exit worker")
     } else {
-    	fmt.Println("chill")
+    	fmt.Println("chill for 2 secs and then retry for requesting job")
     	time.Sleep(2000 * time.Millisecond);
-    	go CallRequestJob(false, mapf, reducef)
+    	// TODO : fix possible stackoverflow
+    	CallRequestJob(mapf, reducef)
     }
 }
 
@@ -120,20 +130,31 @@ func StartMap(input_file string, mapf func(string, string) []KeyValue, reducef f
 	}
 	fmt.Println(len(kva))
 	sort.Sort(ByKey(kva))
+	/*
 	for _,elem := range kva {
 		fmt.Fprintf(write_files[ihash(elem.Key)], "%v %v\n", elem.Key, elem.Value)
+	}
+	 */
+	
+    for _, kv := range kva {
+    	enc := json.NewEncoder(write_files[ihash(kv.Key)])
+    	err := enc.Encode(&kv)
+    	if err != nil {
+    		log.Fatalf("unable to encode to json key =  %v", kv.Key)
+    	}
 	}
 
 	for i := 0; i < nreduce_; i = i + 1 {
 		write_files[i].Close()
 	}
 
-    CallRequestJob(false, mapf, reducef)
+	// TODO : fix possible stackoverflow
+    //CallRequestJob(mapf, reducef)
 }
 
-func StartReduce(reduce_id int, mapf func(string, string) []KeyValue, reducef func(string, []string) string, ) {
+func StartReduce(reduce_id int, mapf func(string, string) []KeyValue, reducef func(string, []string) string) {
 
-// go  CallRequestJob(false, mapf, reducef)
+// go  CallRequestJob(mapf, reducef)
 }
 
 //
