@@ -23,15 +23,21 @@ type ExampleReply struct {
 }
 
 type RequestJobArg struct {
-
+	WORKER_UUID string
+	FIRST_REQUEST bool
 }
 
 type RequestJobRet struct {
 	IS_MAP bool
 	INPUT_FILE string
-	IS_REDUCE bool;
-	REDUCE_ID int;
-	CHILL bool;
+	IS_REDUCE bool
+	REDUCE_ID int
+	CHILL bool
+
+	FIRST_REQUEST bool
+	MAP_ID int
+	NREDUCE int
+
 }
 
 // Add your RPC definitions here.

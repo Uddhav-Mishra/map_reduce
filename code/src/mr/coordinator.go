@@ -9,6 +9,8 @@ import "net/http"
 
 type Coordinator struct {
 	// Your definitions here.
+	file_status_map map[string]int
+	worked_id_map map[string]int
 
 }
 
@@ -25,8 +27,15 @@ func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 }
 
 func (c *Coordinator) RequestJob(arg *RequestJobArg, ret *RequestJobRet) error {
-	ret.IS_MAP = true
-	ret.INPUT_FILE = "/Users/uddhav.mishra/Desktop/map_reduce/code/src/main/input/pg-being_ernest.txt"
+	ret.CHILL = true
+	for key,val := range c.file_status_map {
+		if val == 0 {
+			ret.CHILL = false
+			ret.IS_MAP = true
+			ret.INPUT_FILE = key
+			break
+		}
+	}
 	return nil
 }
 
@@ -66,9 +75,12 @@ func (c *Coordinator) Done() bool {
 //
 func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
-
+	c.file_status_map = make(map[string]int)
+	c.worked_id_map = make(map[string]int)
 	// Your code here.
-
+	for _, x := range files {
+		c.file_status_map[x] = 0
+	}
 
 	c.server()
 	return &c
