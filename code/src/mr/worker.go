@@ -5,9 +5,6 @@ import "log"
 import "net/rpc"
 import "hash/fnv"
 import "time"
-// for uuid gen
-import "os/exec"
-
 
 import "os"
 import "io/ioutil"
@@ -42,19 +39,9 @@ func ihash(key string) int {
 }
 
 
-var worker_uuid_ string;
 var worker_map_id_ int;
 var nreduce_ int;
-
-func GetUuid() string {
-	out, err := exec.Command("uuidgen").Output()
-	if err != nil {
-		fmt.Println("Unable to generate uuid")
-		return GetUuid()
-	}
-	// check error and fatal
-	return string(out)
-}
+var map_count_ int;
 
 //
 // main/mrworker.go calls this function.
@@ -65,10 +52,6 @@ func Worker(mapf func(string, string) []KeyValue,
 	// Your worker implementation here.
 
 	// uncomment to send the Example RPC to the coordinator.
-	CallExample()
-	fmt.Println("heree")
-	worker_uuid_ := GetUuid()
-	fmt.Println(worker_uuid_)
 	worker_map_id_ = 1
 	nreduce_ = 2
 	CallRequestJob(mapf, reducef)
@@ -77,7 +60,6 @@ func Worker(mapf func(string, string) []KeyValue,
 
 func CallRequestJob(mapf func(string, string) []KeyValue, reducef func(string, []string) string) {
     arg := RequestJobArg{}
-    arg.WORKER_UUID = worker_uuid_
     ret := RequestJobRet{}
 
     resp := call("Coordinator.RequestJob", &arg, &ret)
@@ -91,16 +73,18 @@ func CallRequestJob(mapf func(string, string) []KeyValue, reducef func(string, [
 
     // RPC call completed, do map/reduce/exit/wait
     nreduce_ = ret.NREDUCE
+    map_count_ = ret.MAP_COUNT
     if ret.IS_MAP {
-    	fmt.Println("map now" + ret.INPUT_FILE)
+    	//fmt.Println("map now" + ret.INPUT_FILE)
+    	worker_map_id_ = ret.MAP_ID
     	StartMap(ret.INPUT_FILE, mapf, reducef)
     } else if ret.IS_REDUCE {
-    	fmt.Println("reduce")
+    	//fmt.Println("reduce")
       	StartReduce(ret.REDUCE_ID, mapf, reducef)
     } else if ret.WORK_DONE {
-    	fmt.Println("All work done, exit worker")
+    	fmt.Println("All work done, exiting worker")
     } else {
-    	fmt.Println("chill for 2 secs and then retry for requesting job")
+    	//fmt.Println("chill for 2 secs and then retry for requesting job")
     	time.Sleep(2000 * time.Millisecond);
     	// TODO : fix possible stackoverflow
     	CallRequestJob(mapf, reducef)
@@ -123,12 +107,12 @@ func StartMap(input_file string, mapf func(string, string) []KeyValue, reducef f
 	var write_files map[int]*os.File
 	write_files = make(map[int]*os.File)
 	for i := 0; i < nreduce_; i = i + 1 {
-		name := "mr-output-"+strconv.Itoa(worker_map_id_)+"-"+strconv.Itoa(i)
-		fmt.Println(name)
+		name := "mr-temp-"+strconv.Itoa(worker_map_id_)+"-"+strconv.Itoa(i)
+		//fmt.Println(name)
 		ofile, _ := os.Create(name)
 		write_files[i] = ofile
 	}
-	fmt.Println(len(kva))
+	//fmt.Println(len(kva))
 	sort.Sort(ByKey(kva))
 	/*
 	for _,elem := range kva {
@@ -148,13 +132,81 @@ func StartMap(input_file string, mapf func(string, string) []KeyValue, reducef f
 		write_files[i].Close()
 	}
 
+	// Map is completed
+	complete_map_arg := CompleteJobArg{}
+	complete_map_arg.IS_MAP = true
+	complete_map_arg.INPUT_FILE = input_file
+
+	complete_map_ret := CompleteJobRet{}
+	complete_rpc := call("Coordinator.CompleteJob", &complete_map_arg, &complete_map_ret)
+	if !complete_rpc {
+		log.Fatalf("Unable to send complete rpc to coordinator")
+	}
+
 	// TODO : fix possible stackoverflow
-    //CallRequestJob(mapf, reducef)
+    CallRequestJob(mapf, reducef)
 }
 
 func StartReduce(reduce_id int, mapf func(string, string) []KeyValue, reducef func(string, []string) string) {
+	intermediate := []KeyValue{}
+	for i := 0; i < map_count_; i += 1 {
+		filename := "mr-temp-" + strconv.Itoa(i)+"-"+strconv.Itoa(reduce_id)
+		file, err := os.Open(filename)
+		dec := json.NewDecoder(file)
+		if err != nil {
+			fmt.Println("Error : cannot read %v", filename)
+			continue
+		}
+  		for {
+			var kv KeyValue
+    		if err := dec.Decode(&kv); err != nil {
+     	 		break
+    		}	
+  			intermediate = append(intermediate, kv)
+  		}
+		file.Close()
+	}
+	sort.Sort(ByKey(intermediate))
 
-// go  CallRequestJob(mapf, reducef)
+	oname := "mr-out-" + strconv.Itoa(reduce_id)
+	ofile, _ := os.Create(oname)
+
+	//
+	// call Reduce on each distinct key in intermediate[],
+	// and print the result to mr-out-reduce_id.
+	//
+	i := 0
+	for i < len(intermediate) {
+		j := i + 1
+		for j < len(intermediate) && intermediate[j].Key == intermediate[i].Key {
+			j++
+		}
+		values := []string{}
+		for k := i; k < j; k++ {
+			values = append(values, intermediate[k].Value)
+		}
+		output := reducef(intermediate[i].Key, values)
+
+		// this is the correct format for each line of Reduce output.
+		fmt.Fprintf(ofile, "%v %v\n", intermediate[i].Key, output)
+
+		i = j
+	}
+
+	ofile.Close()
+
+	// Given Reduce is completed, let the coordinator know
+	complete_map_arg := CompleteJobArg{}
+	complete_map_arg.IS_REDUCE = true
+	complete_map_arg.REDUCE_ID = reduce_id
+
+	complete_map_ret := CompleteJobRet{}
+	complete_rpc := call("Coordinator.CompleteJob", &complete_map_arg, &complete_map_ret)
+	if !complete_rpc {
+		log.Fatalf("Unable to send complete rpc to coordinator")
+	}
+	// Check if stack overflow needs to be handled here.
+    CallRequestJob(mapf, reducef)
 }
 
 //

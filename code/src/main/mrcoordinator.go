@@ -24,6 +24,6 @@ func main() {
 	for m.Done() == false {
 		time.Sleep(time.Second)
 	}
-
+	fmt.Println("All jobs completed, exiting coordinator")
 	time.Sleep(time.Second)
 }
