@@ -103,13 +103,14 @@ func StartMap(input_file string, mapf func(string, string) []KeyValue, reducef f
 	file.Close()
 	kva := mapf(input_file, string(content))
 
+	prefix_path := "/Users/uddhav.mishra/Desktop/map_reduce/code/src/main/"
 	// open/create mr-(worker_map_id_)-reduce(0 to nreduce-1)
 	var write_files map[int]*os.File
 	write_files = make(map[int]*os.File)
 	for i := 0; i < nreduce_; i = i + 1 {
-		name := "mr-temp-"+strconv.Itoa(worker_map_id_)+"-"+strconv.Itoa(i)
+		name := prefix_path
 		//fmt.Println(name)
-		ofile, _ := os.Create(name)
+		ofile, _ := ioutil.TempFile(name, "mr-temp-"+strconv.Itoa(worker_map_id_)+"-"+strconv.Itoa(i))
 		write_files[i] = ofile
 	}
 	//fmt.Println(len(kva))
@@ -121,16 +122,16 @@ func StartMap(input_file string, mapf func(string, string) []KeyValue, reducef f
 	 */
 	
     for _, kv := range kva {
-    	enc := json.NewEncoder(write_files[ihash(kv.Key)])
-    	err := enc.Encode(&kv)
+    	//enc := json.NewEncoder(write_files[ihash(kv.Key)])
+    	//err := enc.Encode(&kv)
+    	json_out,_ := json.MarshalIndent(kv, "", "")
+    	write_files[ihash(kv.Key)].Write(json_out)
     	if err != nil {
-    		log.Fatalf("unable to encode to json key =  %v", kv.Key)
+    		log.Fatalf("unable to encode to json key =  %v %v", kv.Key, kv.Value)
     	}
 	}
 
-	for i := 0; i < nreduce_; i = i + 1 {
-		write_files[i].Close()
-	}
+
 
 	// Map is completed
 	complete_map_arg := CompleteJobArg{}
@@ -138,6 +139,17 @@ func StartMap(input_file string, mapf func(string, string) []KeyValue, reducef f
 	complete_map_arg.INPUT_FILE = input_file
 
 	complete_map_ret := CompleteJobRet{}
+
+	// Now that all writes are complete. rename temp files to expected names
+	// for map output files.
+	for i := 0; i < nreduce_; i = i + 1 {
+
+		write_files[i].Close()
+		//prev_name := prefix_path+"mr-temp-"+strconv.Itoa(worker_map_id_)+"-"+strconv.Itoa(i)
+		name := prefix_path+"mr-map-"+strconv.Itoa(worker_map_id_)+"-"+strconv.Itoa(i)
+		os.Rename(write_files[i].Name(), name)
+	}
+
 	complete_rpc := call("Coordinator.CompleteJob", &complete_map_arg, &complete_map_ret)
 	if !complete_rpc {
 		log.Fatalf("Unable to send complete rpc to coordinator")
@@ -150,7 +162,8 @@ func StartMap(input_file string, mapf func(string, string) []KeyValue, reducef f
 func StartReduce(reduce_id int, mapf func(string, string) []KeyValue, reducef func(string, []string) string) {
 	intermediate := []KeyValue{}
 	for i := 0; i < map_count_; i += 1 {
-		filename := "mr-temp-" + strconv.Itoa(i)+"-"+strconv.Itoa(reduce_id)
+		prefix_path := "/Users/uddhav.mishra/Desktop/map_reduce/code/src/main/"
+		filename := prefix_path+"mr-map-" + strconv.Itoa(i)+"-"+strconv.Itoa(reduce_id)
 		file, err := os.Open(filename)
 		dec := json.NewDecoder(file)
 		if err != nil {
