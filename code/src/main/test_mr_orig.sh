@@ -191,6 +191,7 @@ sleep 1
 
 # start multiple workers.
 timeout -k 2s 180s ../mrworker ../../mrapps/early_exit.so &
+_pid=$!
 timeout -k 2s 180s ../mrworker ../../mrapps/early_exit.so &
 timeout -k 2s 180s ../mrworker ../../mrapps/early_exit.so &
 

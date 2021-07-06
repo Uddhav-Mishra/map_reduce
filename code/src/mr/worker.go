@@ -12,6 +12,7 @@ import "strconv"
 import "sort"
 import "encoding/json"
 
+
 //
 // Map functions return a slice of KeyValue.
 //
@@ -42,7 +43,7 @@ func ihash(key string) int {
 var worker_map_id_ int;
 var nreduce_ int;
 var map_count_ int;
-
+var file_path_ string
 //
 // main/mrworker.go calls this function.
 //
@@ -50,7 +51,11 @@ func Worker(mapf func(string, string) []KeyValue,
 	reducef func(string, []string) string) {
 
 	// Your worker implementation here.
-
+	path, err := os.Getwd()
+	if err != nil {
+            log.Fatal(err)
+    }
+    file_path_ = path + "/"
 	// uncomment to send the Example RPC to the coordinator.
 	worker_map_id_ = 1
 	nreduce_ = 2
@@ -103,23 +108,17 @@ func StartMap(input_file string, mapf func(string, string) []KeyValue, reducef f
 	file.Close()
 	kva := mapf(input_file, string(content))
 
-	prefix_path := "/Users/uddhav.mishra/Desktop/map_reduce/code/src/main/"
 	// open/create mr-(worker_map_id_)-reduce(0 to nreduce-1)
 	var write_files map[int]*os.File
 	write_files = make(map[int]*os.File)
 	for i := 0; i < nreduce_; i = i + 1 {
-		name := prefix_path
+		name := file_path_
 		//fmt.Println(name)
 		ofile, _ := ioutil.TempFile(name, "mr-temp-"+strconv.Itoa(worker_map_id_)+"-"+strconv.Itoa(i))
 		write_files[i] = ofile
 	}
 	//fmt.Println(len(kva))
 	sort.Sort(ByKey(kva))
-	/*
-	for _,elem := range kva {
-		fmt.Fprintf(write_files[ihash(elem.Key)], "%v %v\n", elem.Key, elem.Value)
-	}
-	 */
 	
     for _, kv := range kva {
     	//enc := json.NewEncoder(write_files[ihash(kv.Key)])
@@ -145,8 +144,7 @@ func StartMap(input_file string, mapf func(string, string) []KeyValue, reducef f
 	for i := 0; i < nreduce_; i = i + 1 {
 
 		write_files[i].Close()
-		//prev_name := prefix_path+"mr-temp-"+strconv.Itoa(worker_map_id_)+"-"+strconv.Itoa(i)
-		name := prefix_path+"mr-map-"+strconv.Itoa(worker_map_id_)+"-"+strconv.Itoa(i)
+		name := file_path_+"mr-map-"+strconv.Itoa(worker_map_id_)+"-"+strconv.Itoa(i)
 		os.Rename(write_files[i].Name(), name)
 	}
 
@@ -162,8 +160,7 @@ func StartMap(input_file string, mapf func(string, string) []KeyValue, reducef f
 func StartReduce(reduce_id int, mapf func(string, string) []KeyValue, reducef func(string, []string) string) {
 	intermediate := []KeyValue{}
 	for i := 0; i < map_count_; i += 1 {
-		prefix_path := "/Users/uddhav.mishra/Desktop/map_reduce/code/src/main/"
-		filename := prefix_path+"mr-map-" + strconv.Itoa(i)+"-"+strconv.Itoa(reduce_id)
+		filename := file_path_+"mr-map-" + strconv.Itoa(i)+"-"+strconv.Itoa(reduce_id)
 		file, err := os.Open(filename)
 		dec := json.NewDecoder(file)
 		if err != nil {
