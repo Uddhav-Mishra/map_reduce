@@ -11,21 +11,31 @@ import "sync"
 //import "strconv"
 
 type Coordinator struct {
-	// Your definitions here.
+	// Input file to status of map task.
+	// status = 0 : yet to map, 1: map running, 2: map complete
 	map_status map[string]int
+	// Input file to start time of map process.
 	map_stage_start_time map[string]int64
+	// Input file to ID (1 to file_count)
 	map_file_to_id map[string]int
+	// Update periodically from values of map_status, If any map is 
 	map_stage_completed_status bool
     
-    cur_map_job_counter int
+    // Total number of reduce jobs.
     nreduce int
 
+    // Reduce job id to status of reduce task. 
+    // status = 0 : yet to map, 1: map running, 2: map complete
     reduce_status map[int]int
+    // Reduce id to start time of reduce task.
     reduce_stage_start_time map[int]int64
+    // Uses 'reduce_status' to determine if reduce stage is completed
+    // or not. 
     reduce_stage_completed_status bool
 }
 
-// to protect coordinator variables in struct
+// To protect coordinator variables in struct.
+// A granular lock can be used for protecting different variables.
 var mu sync.Mutex
 
 // Your code here -- RPC handlers for the worker to call.
@@ -130,7 +140,7 @@ func (c *Coordinator) Periodic() {
 	//fmt.Println("Starting periodic checks")
 
 	mu.Lock()
-	// checks to remove from pending tasks if taking more than 10secs
+	// Checks to remove from pending tasks if taking more than 10secs
 	// update map stage completed status
 	cur_time := time.Now().UnixNano() / 1000000000
 	var max_time_diff_allowed int64
@@ -188,7 +198,7 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c.reduce_status = make(map[int]int)
 	c.nreduce = nReduce
 	//fmt.Println(nReduce)
-	c.cur_map_job_counter = 0
+
 	c.map_stage_completed_status = false
 	c.reduce_stage_completed_status = false
 
@@ -206,6 +216,8 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	mu.Unlock()
 
 	c.server()
+	// Start the periodic process in separate thread.
+	// Overall coordinator uses locks and is thread-safe.
 	go c.Periodic()
 	return &c
 }

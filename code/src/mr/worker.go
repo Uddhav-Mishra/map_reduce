@@ -39,11 +39,18 @@ func ihash(key string) int {
 	return int(h.Sum32() & 0x7fffffff) % nreduce_
 }
 
-
+// Map id of current running task. When we request job from coordinator map id is provided
+// which we use to store the output file name.
 var worker_map_id_ int;
+// The reduce job id, When running the job we read all input
 var nreduce_ int;
+// Max map id that we have to consider while running reduce job. Input files to be used
+// for any reduce jobs are for x  in (0, map_count_) : mr-map-x-reduceid
 var map_count_ int;
+// prefix for file paths that we are storing for map and reduce output.
 var file_path_ string
+
+
 //
 // main/mrworker.go calls this function.
 //
@@ -57,8 +64,8 @@ func Worker(mapf func(string, string) []KeyValue,
     }
     file_path_ = path + "/"
 	// uncomment to send the Example RPC to the coordinator.
-	worker_map_id_ = 1
-	nreduce_ = 2
+	worker_map_id_ = 0
+	nreduce_ = 1
 	CallRequestJob(mapf, reducef)
 }
 
@@ -182,7 +189,7 @@ func StartReduce(reduce_id int, mapf func(string, string) []KeyValue, reducef fu
 	ofile, _ := os.Create(oname)
 
 	//
-	// call Reduce on each distinct key in intermediate[],
+	// Call Reduce on each distinct key in intermediate[],
 	// and print the result to mr-out-reduce_id.
 	//
 	i := 0
@@ -205,7 +212,10 @@ func StartReduce(reduce_id int, mapf func(string, string) []KeyValue, reducef fu
 
 	ofile.Close()
 
-	// Given Reduce is completed, let the coordinator know
+	// Given Reduce is completed, let the coordinator know.
+	// If a crash happens before this RPC call is received on coordinator, current task will be
+	// rescheduled and the output files generated on new worker will replace the files written
+	// by this one, since we are not sure if the current worker completed job or not.
 	complete_map_arg := CompleteJobArg{}
 	complete_map_arg.IS_REDUCE = true
 	complete_map_arg.REDUCE_ID = reduce_id
@@ -215,7 +225,7 @@ func StartReduce(reduce_id int, mapf func(string, string) []KeyValue, reducef fu
 	if !complete_rpc {
 		log.Fatalf("Unable to send complete rpc to coordinator")
 	}
-	// Check if stack overflow needs to be handled here.
+	// Current job done, Check if stack overflow needs to be handled here.
     CallRequestJob(mapf, reducef)
 }
 
