@@ -1,6 +1,7 @@
 # map_reduce
-More information about the project implementation [here](https://medium.com/@1996mishra.uddhav/my-approach-for-map-reduce-framework-implementation-mit-6-824-lab-1-b001f23432a6)
 Distributed map reduce implementation framework which provides support to spawn coordinator and multiple worker process to complete a given map reduce task. This is implementation of [lab](https://pdos.csail.mit.edu/6.824/labs/lab-mr.html). Useful links for understanding map reduce [paper](http://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf) [video](https://youtu.be/cQP8WApzIQQ?t=2835)
+
+More information about the project implementation [here](https://medium.com/@1996mishra.uddhav/my-approach-for-map-reduce-framework-implementation-mit-6-824-lab-1-b001f23432a6)
 
 ## Implementation:
 All workers contact the coordinator via RPC. Currently the implementation uses coordinator and worker on same machine(rpc changes and global shared file system needed to incorporate cross machine communication). The workers keep running until the complete map reduce job is completed. Worker sends RPC RequestJob to Coordinator and request a task(map/reduce) to process. Coordinator replies with information about which task that worker can pick. Once worker completes a particular given task it sends RPC to coordinator specifying that the task is completed. Once map function is completed for all input files, coordinator starts sending reduce tasks to all the workers. The final output is produced by the reduce tasks.
