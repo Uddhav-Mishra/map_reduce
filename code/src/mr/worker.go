@@ -77,7 +77,7 @@ func CallRequestJob(mapf func(string, string) []KeyValue, reducef func(string, [
     resp := call("Coordinator.RequestJob", &arg, &ret)
     if resp == false {
  		fmt.Println("RPC to coordinator failed , Retrying");
- 		// check how to avoid stack overflow here and other places
+ 		// Check how to avoid stack overflow here and other places
     	// where nested calls are being made.
  		CallRequestJob(mapf, reducef)
     	return

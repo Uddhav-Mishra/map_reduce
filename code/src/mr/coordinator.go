@@ -35,20 +35,8 @@ type Coordinator struct {
 }
 
 // To protect coordinator variables in struct.
-// A granular lock can be used for protecting different variables.
+// Fine granular locks can be added for protecting different variables.
 var mu sync.Mutex
-
-// Your code here -- RPC handlers for the worker to call.
-
-//
-// an example RPC handler.
-//
-// the RPC argument and reply types are defined in rpc.go.
-//
-func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
-	reply.Y = args.X + 1
-	return nil
-}
 
 func (c *Coordinator) RequestJob(arg *RequestJobArg, ret *RequestJobRet) error {
 	//fmt.Println("Received rpc request job")
@@ -104,6 +92,18 @@ func (c *Coordinator) CompleteJob(arg *CompleteJobArg, ret *CompleteJobRet) erro
 		delete(c.reduce_stage_start_time, arg.REDUCE_ID)
 	}
 	mu.Unlock()
+	return nil
+}
+
+// Your code here -- RPC handlers for the worker to call.
+
+//
+// an example RPC handler.
+//
+// the RPC argument and reply types are defined in rpc.go.
+//
+func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
+	reply.Y = args.X + 1
 	return nil
 }
 

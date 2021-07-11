@@ -1,4 +1,5 @@
 # map_reduce
+More information about the project implementation [here](https://medium.com/@1996mishra.uddhav/my-approach-for-map-reduce-framework-implementation-mit-6-824-lab-1-b001f23432a6)
 Distributed map reduce implementation framework which provides support to spawn coordinator and multiple worker process to complete a given map reduce task. This is implementation of [lab](https://pdos.csail.mit.edu/6.824/labs/lab-mr.html). Useful links for understanding map reduce [paper](http://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf) [video](https://youtu.be/cQP8WApzIQQ?t=2835)
 
 ## Implementation:
@@ -20,7 +21,7 @@ In code/src/main/
 
 ## Features:
 - **Parallelism** : All workers can execute different map/reduce tasks and this helps us to get the task completed in parallel.
-- **Crash Resistant** : Assuming worker can crash at any instant during the task execution. Avoid Partially written files : Uses temp file to write while processing map tasks. The temp files are renamed once the map task is completed.
+- **Fault Tolerance** : Re-exeuction is the technique used for fault tolerance in case of crashes. Assuming worker can crash at any instant during the task execution. Avoid Partially written files : Uses temp file to write while processing map tasks. The temp files are renamed once the map task is completed.
 - **Job Reschedule** : In case of delayed executions, Periodic process at coordinator will mark tasks to be rescheduled in case its not completed in specified time. 
 
 ## Enhancements that can be added to current implementation:
@@ -29,6 +30,6 @@ In code/src/main/
 - **Granular locks** : A granular lock can be introduced instead of one complete lock for protecting all map and reduce coordinator state variables.
 - **Gflags** : Use gflags to define configurable constants like prefix of file name used in worker, no. of reduce tasks, periodic function time delay etc.
 - **Improve test-mr.sh** for early exit test : wait -n does not work properly on mac to wait for any completed process. Currently waiting for one of the started worker processes instead of any of the worker process to finish.
-- **Coordinator crashes** : Dealing with coordinator crashes in a better way.
+- **Coordinator crashes** : Dealing with coordinator crashes by storing coordinator state in a file.
 
 

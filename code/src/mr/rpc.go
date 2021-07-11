@@ -26,19 +26,21 @@ type RequestJobArg struct {
 }
 
 type RequestJobRet struct {
+	// If map task is alloted to worker.
 	IS_MAP bool
+	// Input file on which map needs to be done.
 	INPUT_FILE string
 	MAP_ID int
 
 	IS_REDUCE bool
 	REDUCE_ID int
 
-	CHILL bool
-
 	NREDUCE int
 	MAP_COUNT int
 	
 	WORK_DONE bool
+
+	CHILL bool
 }
 
 type CompleteJobArg struct {
